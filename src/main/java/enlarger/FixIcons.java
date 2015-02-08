@@ -47,6 +47,8 @@ public class FixIcons {
 				"This is the base directory where we'll parse jars/zips");
 		Option outputDir = new Option("o", "outputDir", true,
 				"This is the base directory where we'll place output");
+		Option resizeFactor = new Option("z", "resizeFactor", true,
+				"This is the resize factor. Default is 2.");
 		baseDir.setRequired(true);
 		outputDir.setRequired(true);
 		
@@ -102,8 +104,21 @@ public class FixIcons {
 				logger.error("The output directory is not empty");
 				return;
 			}
+			String resizeFactorStr = commandLine.getOptionValue("z");
+			float resizeFactor = 2;
+			if(resizeFactorStr!=null)
+			{
+				try
+				{
+					resizeFactor = Float.parseFloat(resizeFactorStr);
+				} catch (NumberFormatException e)
+				{
+					logger.error("Can't parse provided resizeFactor'" +resizeFactorStr+"'");
+					return;
+				}
+			}
 
-			new FixIconsProcessor().processDirectory(base, output);
+			new FixIconsProcessor().processDirectory(base, output, resizeFactor);
 
 		} catch (ParseException e) {
 			logger.error("Unable to parse arguments: " + e.getMessage());

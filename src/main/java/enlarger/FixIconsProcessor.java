@@ -26,7 +26,7 @@ public class FixIconsProcessor
 {
 	private static final Logger logger = Logger.getLogger(FixIconsProcessor.class);
 	
-	public void processDirectory(File directory, File outputDirectory)
+	public void processDirectory(File directory, File outputDirectory, float resizeFactor)
 			throws Exception {
 		logger.info("Processing directory [" + directory.getAbsolutePath()
 				+ "]");
@@ -38,7 +38,7 @@ public class FixIconsProcessor
 				logger.info("Creating directory: "
 						+ targetDir.getAbsolutePath());
 				targetDir.mkdir();
-				processDirectory(file, targetDir);
+				processDirectory(file, targetDir, resizeFactor);
 			} else {
 				File targetFile = new File(outputDirectory.getAbsolutePath()
 						+ File.separator + file.getName());
@@ -76,7 +76,7 @@ public class FixIconsProcessor
 								zipSrc.getInputStream(entry));
 
 						if (ImageType.findType(entry.getName()) != null) {
-							processImage(zipSrc.getName() + "!/" + entry.getName(), bis, outStream);
+							processImage(zipSrc.getName() + "!/" + entry.getName(), bis, outStream, resizeFactor);
 						} else {
 							IOUtils.copy(bis, outStream);
 						}
@@ -96,7 +96,7 @@ public class FixIconsProcessor
 					try {
 						inStream = new FileInputStream(file);
 						outStream = new FileOutputStream(targetFile);
-						processImage(file.getName(), inStream, outStream);
+						processImage(file.getName(), inStream, outStream, resizeFactor);
 					} finally {
 						IOUtils.closeQuietly(inStream);
 						IOUtils.closeQuietly(outStream);
@@ -125,7 +125,7 @@ public class FixIconsProcessor
 	}
 
 	public void processImage(String fileName, InputStream input,
-			OutputStream output) throws IOException {
+			OutputStream output, float resizeFactor) throws IOException {
 
 		logger.info("Scaling image: " + fileName);
 
@@ -133,8 +133,8 @@ public class FixIconsProcessor
 		try {
 			BufferedImage out = ImageIO.read(input);
 
-			int outWidth = out.getWidth() * 2;
-			int outHeight = out.getHeight() * 2;
+			int outWidth = (int) (out.getWidth() * resizeFactor);
+			int outHeight = (int) (out.getHeight() * resizeFactor);
 
 			BufferedImage rescaledOut = createResizedCopy(out, outWidth, outHeight);
 
