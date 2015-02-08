@@ -1,4 +1,4 @@
-package testEclipse;
+package enlarger;
 
 public enum ImageType {
 
