@@ -1,19 +1,8 @@
 package enlarger;
 
-import java.awt.image.BufferedImage;
-import java.io.BufferedInputStream;
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.util.Enumeration;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipFile;
-import java.util.zip.ZipOutputStream;
-
-import javax.imageio.ImageIO;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.GnuParser;
@@ -21,12 +10,6 @@ import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
-import org.apache.commons.io.IOUtils;
-import org.apache.log4j.Logger;
-import org.imgscalr.Scalr;
-
-import com.mortennobel.imagescaling.AdvancedResizeOp;
-import com.mortennobel.imagescaling.ResampleOp;
 
 /**
  * Small utility to double the size of eclipse icons for QHD monitors.
@@ -37,23 +20,28 @@ import com.mortennobel.imagescaling.ResampleOp;
  */
 public class FixIcons {
 
-	private static final Logger logger = Logger.getLogger(FixIcons.class);
+	private static final Logger logger = Logger.getGlobal();
 	
 	private static Options options = new Options();
 	
 	static
 	{
+		logger.setLevel(Level.INFO);
 		Option baseDir = new Option("b", "baseDir", true,
 				"This is the base directory where we'll parse jars/zips");
 		Option outputDir = new Option("o", "outputDir", true,
 				"This is the base directory where we'll place output");
 		Option resizeFactor = new Option("z", "resizeFactor", true,
 				"This is the resize factor. Default is 2.");
+		Option help = new Option("h", "help", true,
+				"Show help");
 		baseDir.setRequired(true);
 		outputDir.setRequired(true);
 		
 		options.addOption(baseDir);
 		options.addOption(outputDir);
+		options.addOption(resizeFactor);
+		options.addOption(help);
 	}
 
 	public static final void main(String[] args) {
@@ -61,7 +49,7 @@ public class FixIcons {
 			try {
 			GnuParser parser = new GnuParser();
 			CommandLine commandLine = parser.parse(options, args);
-			if(!commandLine.hasOption("b") || !commandLine.hasOption("o"))
+			if(!commandLine.hasOption("b") || !commandLine.hasOption("o") || commandLine.hasOption("h"))
 			{
 				printHelp();
 				return;
@@ -75,7 +63,7 @@ public class FixIcons {
 
 			File base = new File(baseDirArg);
 			if (!base.exists() || !base.canRead() || !base.isDirectory()) {
-				logger.error("Unable to read from base directory");
+				logger.severe("Unable to read from base directory");
 				return;
 			}
 
@@ -84,24 +72,24 @@ public class FixIcons {
 			{
 				if(!output.mkdirs())
 				{
-					logger.error("Can't create directory '"+outputDirArg+"'");
+					logger.severe("Can't create directory '"+outputDirArg+"'");
 					printHelp();
 					return;
 				}
 			}
 			if (!output.exists() || !output.canRead() || !output.canWrite()
 					|| !output.isDirectory()) {
-				logger.error("Unable to write to output director");
+				logger.severe("Unable to write to output director");
 				return;
 			}
 
 			if (base.list() == null || base.list().length == 0) {
-				logger.error("The base directory is empty");
+				logger.severe("The base directory is empty");
 				return;
 			}
 
 			if (output.list() != null && output.list().length != 0) {
-				logger.error("The output directory is not empty");
+				logger.severe("The output directory is not empty");
 				return;
 			}
 			String resizeFactorStr = commandLine.getOptionValue("z");
@@ -113,18 +101,19 @@ public class FixIcons {
 					resizeFactor = Float.parseFloat(resizeFactorStr);
 				} catch (NumberFormatException e)
 				{
-					logger.error("Can't parse provided resizeFactor'" +resizeFactorStr+"'");
+					logger.severe("Can't parse provided resizeFactor'" +resizeFactorStr+"'");
 					return;
 				}
 			}
+			logger.info("Resize factor: " + resizeFactor);
 
 			new FixIconsProcessor().processDirectory(base, output, resizeFactor);
 
 		} catch (ParseException e) {
-			logger.error("Unable to parse arguments: " + e.getMessage());
+			logger.severe("Unable to parse arguments: " + e.getMessage());
 			printHelp();
 		} catch (Exception e) {
-			logger.error("Unexpected error: " + e.getMessage(), e);
+			logger.log(Level.SEVERE, "Unexpected error: " + e.getMessage(), e);
 			printHelp();
 		}
 	}
@@ -132,6 +121,6 @@ public class FixIcons {
 	private static void printHelp()
 	{
 		HelpFormatter formatter = new HelpFormatter();
-		formatter.printHelp( "enlarger", options );
+		formatter.printHelp( "java -jar eclipse-icon-enlarger.jar", options );
 	}
 }

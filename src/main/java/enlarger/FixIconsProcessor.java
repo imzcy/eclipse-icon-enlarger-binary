@@ -9,6 +9,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.Enumeration;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import java.util.zip.ZipOutputStream;
@@ -16,7 +18,6 @@ import java.util.zip.ZipOutputStream;
 import javax.imageio.ImageIO;
 
 import org.apache.commons.io.IOUtils;
-import org.apache.log4j.Logger;
 import org.imgscalr.Scalr;
 
 import com.mortennobel.imagescaling.AdvancedResizeOp;
@@ -24,7 +25,7 @@ import com.mortennobel.imagescaling.ResampleOp;
 
 public class FixIconsProcessor
 {
-	private static final Logger logger = Logger.getLogger(FixIconsProcessor.class);
+	private static final Logger logger = Logger.getGlobal();
 	
 	public void processDirectory(File directory, File outputDirectory, float resizeFactor)
 			throws Exception {
@@ -47,46 +48,62 @@ public class FixIconsProcessor
 						|| file.getName().toLowerCase().endsWith(".jar")) {
 					logger.info("Processing archive file: "
 							+ file.getAbsolutePath());
+					ZipFile zipSrc = null;
+					ZipOutputStream outStream = null;
+					try
+					{
+						zipSrc = new ZipFile(file);
+						Enumeration<? extends ZipEntry> srcEntries = zipSrc.entries();
 
-					ZipFile zipSrc = new ZipFile(file);
-					Enumeration<? extends ZipEntry> srcEntries = zipSrc.entries();
+						outStream = new ZipOutputStream(
+								new FileOutputStream(targetFile));
 
-					ZipOutputStream outStream = new ZipOutputStream(
-							new FileOutputStream(targetFile));
+						while (srcEntries.hasMoreElements()) {
+							ZipEntry entry = (ZipEntry) srcEntries.nextElement();
+							logger.info("Processing zip entry [" + entry.getName()
+									+ "]");
 
-					while (srcEntries.hasMoreElements()) {
-						ZipEntry entry = (ZipEntry) srcEntries.nextElement();
-						logger.info("Processing zip entry [" + entry.getName()
-								+ "]");
-
-						ZipEntry newEntry = new ZipEntry(entry.getName());
-						try {
-							outStream.putNextEntry(newEntry);
-						} catch (Exception e) {
-							if (!e.getMessage().startsWith("duplicate entry: ")) {
-								logger.error("error: ", e);
-							} else {
-								logger.info(e.getMessage(), e);
+							ZipEntry newEntry = new ZipEntry(entry.getName());
+							try {
+								outStream.putNextEntry(newEntry);
+							} catch (Exception e) {
+								if (!e.getMessage().startsWith("duplicate entry: ")) {
+									logger.log(Level.SEVERE, "Error: ", e);
+								} else {
+									logger.log(Level.SEVERE, e.getMessage(), e);
+								}
+								outStream.closeEntry();
+								continue;
 							}
+
+							BufferedInputStream bis = new BufferedInputStream(
+									zipSrc.getInputStream(entry));
+
+							if (ImageType.findType(entry.getName()) != null) {
+								processImage(zipSrc.getName() + "!/" + entry.getName(), bis, outStream, resizeFactor);
+							} else {
+								IOUtils.copy(bis, outStream);
+							}
+
 							outStream.closeEntry();
-							continue;
+							bis.close();
 						}
 
-						BufferedInputStream bis = new BufferedInputStream(
-								zipSrc.getInputStream(entry));
-
-						if (ImageType.findType(entry.getName()) != null) {
-							processImage(zipSrc.getName() + "!/" + entry.getName(), bis, outStream, resizeFactor);
-						} else {
-							IOUtils.copy(bis, outStream);
-						}
-
-						outStream.closeEntry();
-						bis.close();
+					} catch (Exception e)
+					{
+						logger.log(Level.SEVERE, "Can't process file: "+file.getAbsolutePath(), e);
 					}
-
-					zipSrc.close();
-					outStream.close();
+					finally
+					{
+						try
+						{
+							if(zipSrc!=null) zipSrc.close();
+							if(outStream!=null) outStream.close();
+						} catch (IOException e)
+						{
+							logger.log(Level.SEVERE, "Can't close zip streams for file: "+file.getAbsolutePath(), e);
+						}
+					}
 				} else if (ImageType.findType(file.getName()) != null) {
 					logger.info("Processing image: " + file.getAbsolutePath());
 
@@ -146,7 +163,7 @@ public class FixIconsProcessor
 				throw new RuntimeException("Failed to scale image [" + fileName
 						+ "]: " + e.getMessage(), e);
 			} else {
-				logger.error(
+				logger.log(Level.SEVERE,
 						"Unable to scale [" + fileName + "]: " + e.getMessage(),
 						e);
 				IOUtils.copy(input, output);
